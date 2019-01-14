@@ -1,0 +1,119 @@
+---
+title: "Practial Machine Learning"
+author: "Sachin"
+date: "January 13, 2019"
+output:
+  html_document:
+    keep_md: yes
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction:
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+# Data Source:
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+# Prepare the Dataset:
+
+``` {r preparation}
+
+library(caret);
+library(rpart);
+library(rpart.plot);
+library(RColorBrewer);
+library(randomForest);
+
+url1<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv";
+
+url2<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv";
+
+DataTraining<-read.csv(url1)
+DataTesting<-read.csv(url2)
+
+dim(DataTraining)
+dim(DataTesting)
+```
+
+# Data Cleaning:
+There are many data fields which is having NA so those are of no use in the analysis. Also initial 7 fields are related to time series that are not of use because we are not considering that in this analysis.
+
+```{r cleanup}
+DataTraining <- DataTraining[, colSums(is.na(DataTraining)) == 0]
+
+DataTesting <- DataTesting[, colSums(is.na(DataTesting)) == 0]
+
+trainToRemove<- grepl("^X|timestamp|window", names(DataTraining))
+
+DataTraining<-DataTraining[,!trainToRemove]
+
+classe<- DataTraining$classe
+
+CleanedTrainingData<- DataTraining[, sapply(DataTraining, is.numeric)]
+
+CleanedTrainingData$classe<-classe
+
+testToRemove<- grepl("^X|timestamp|window", names(DataTesting))
+
+DataTesting<-DataTesting[,!testToRemove]
+
+CleanedTestingData<- DataTesting[, sapply(DataTesting, is.numeric)]
+
+```
+# Data Partition
+We partition Training data set into training and cross validation data set. As per instruction in our learning we use 60% for data partitioning.
+```{r datamodeling}
+set.seed(56789)
+
+trainIndex<-createDataPartition(CleanedTrainingData$classe,p=0.6,list=FALSE)
+
+Training<-CleanedTrainingData[trainIndex,]
+
+Testing<-CleanedTrainingData[-trainIndex,]
+
+```
+# Create and Predict using Decision Tree model:
+```{r DTmodel}
+fitDT<-train(classe~.,data = Training,method="rpart")
+
+predDT<-predict(fitDT, Testing)
+
+confusionMatrix(Testing$classe,predDT)
+
+##plotting the decision tree
+
+rpart.plot(fitDT$finalModel)
+```
+# Create and predict using Random forest
+```{r RFmodel}
+fitRF<-train(classe~.,data=Training,method="rf",ntree=100)
+
+predRF<-predict(fitRF,Testing)
+
+confusionMatrix(Testing$classe,predRF)
+
+```
+# Predicting on Testing Dataset
+
+``` {r prediction}
+## Decision Tree Prediction
+predictionDT <- predict(fitDT, CleanedTestingData)
+predictionDT
+
+## Random Forest Perdiction
+predictionRF<- predict(fitRF,CleanedTestingData)
+predictionRF
+```
+
+# Conclusion
+As we can we from the result, the random forest algorithem far outperforms the decision tree in terms of accuracy. We are getting 99.25% in sample accuracy, while the decision tree gives us only nearly 50% in sample accuracy.
